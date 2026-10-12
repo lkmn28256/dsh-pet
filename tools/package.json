@@ -1,0 +1,6 @@
+{
+  "name": "dsh-pet-tools",
+  "private": true,
+  "type": "commonjs",
+  "description": "离线测试台：不需要 DSH 在跑就能验 client.js 与 lib/index.js（宿主那份另有 .mjs）"
+}

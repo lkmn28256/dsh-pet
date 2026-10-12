@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# 二进制：别做行尾转换
+*.png binary
+*.wav binary

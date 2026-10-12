@@ -1,0 +1,23 @@
+# 测试台就地生成的产物：都能重新跑出来，不入库
+tools/bubble-preview.html
+tools/bubble-preview-calm.png
+tools/zone-map.png
+tools/*.log
+
+# 备份与临时文件
+*.bak
+*.bak-*
+*.orig
+*.rej
+*~
+
+# 依赖与打包产物（这个插件没有运行时依赖）
+node_modules/
+package-lock.json
+*.tgz
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

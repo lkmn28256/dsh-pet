@@ -1,0 +1,54 @@
+{
+  "name": "dsh-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH desktop pet: expression sprites driven by session status and local interaction",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "assets",
+    "cordis.patch.yml",
+    "tools",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "desktop-pet",
+    "live2d-alternative",
+    "electron-overlay"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LKMN28256/dsh-pet.git"
+  },
+  "homepage": "https://github.com/LKMN28256/dsh-pet#readme",
+  "bugs": {
+    "url": "https://github.com/LKMN28256/dsh-pet/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "license": "MIT"
+}

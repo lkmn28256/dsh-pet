@@ -1,0 +1,11 @@
+# dsh-pet bundle patch.
+#
+# 本 bundle 贡献一个宿主行：负责把立绘素材通过同源 HTTP 路由下发给浏览器半边。
+# 浏览器半边靠 package.json 里的 `dsh.client` 声明（platform=web）装载，
+# 它把自己挂到 shell.overlay 上，浮在所有列之上。
+#
+# 注意：patch 会替换目标行的整个 config，因此这里只出现 additve 的 insert 行，
+# 绝不覆盖官方已有行。
+- insert:
+    - id: dsh-pet
+      name: 'dsh-pet'
