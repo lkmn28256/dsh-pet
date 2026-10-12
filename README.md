@@ -6,10 +6,12 @@
 *A desktop-pet overlay plugin for DSH. It is deliberately **just a pet** —
 the AI's status never borrows its face.*
 
-![13 张表情差分](docs/expressions.png)
+![桌宠在 DSH 的聊天界面里](docs/screenshot.png)
 
 **它只有一件事要做：当一只宠物。** AI 的状态（在跑工具 / 思考 / 出错 / 上下文多满 / 待办进度）
 **不占用它的脸**，走标签下面那条独立的细条仪表。
+
+![13 张表情差分](docs/expressions.png)
 
 ## 环境要求
 
