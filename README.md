@@ -65,16 +65,16 @@ cd ~/.dsh/profiles/desktop && pnpm install
 仓库自带**离线测试台**：不用装任何依赖、不需要 DSH 在跑，就能验掉绝大部分逻辑。
 
 ```bash
-node tools/test_client.js     # 138 项：在 Node 里种一个最小 React 替身，把 client.js 真跑一遍
+node tools/test_client.js     # 141 项：在 Node 里种一个最小 React 替身，把 client.js 真跑一遍
 node tools/test_host.mjs      # 49 项：fake 一个 ctx 直接调路由，宿主改完不用重启就能验
-node tools/mutation_check.js  # 26 个变异必须全部"会红"
+node tools/mutation_check.js  # 29 个变异必须全部"会红"
 node tools/scan_undefined.js  # 静态扫"调了没定义的函数"（这类错会让整个桌宠消失）
 node tools/verify_live.js     # 端到端：对着已经跑起来的 DSH 验（这一项需要 DSH 在跑）
 python tools/check_eol.py     # 全仓必须是纯 LF
 python tools/make_sheet.py    # 重新生成上面那张表情总览图（需要 Pillow）
 ```
 
-**`mutation_check.js` 是这个项目最想给你看的东西。** 它把 26 处关键修复**逐个还原**，
+**`mutation_check.js` 是这个项目最想给你看的东西。** 它把 29 处关键修复**逐个还原**，
 再确认对应的测试真的会失败 —— 一条无论怎么改代码都绿的测试，不叫测试。
 
 同理，`test_host.mjs` 存在的理由是：宿主改一次要重启一次 DSH，而重启会打断正在跑的会话，
@@ -153,9 +153,21 @@ python tools/make_sheet.py    # 重新生成上面那张表情总览图（需要
 
 ### ⑤ 气泡交互（只有宠物会说话）
 
-- 台词气泡：点击 / 靠近 / 走远 / 被甩飞 / 落地 / 睡醒 / 无聊 都会说话
-- 连点生气：`MULTI_CLICK_WINDOW` 内点到 **随机** `MULTI_CLICK_MIN`~`MULTI_CLICK_MAX` 下 → 生气「别戳了！」并保持 `ANGRY_HOLD_MS`
+- 台词气泡：点击 / 靠近 / 走远 / 被甩飞 / 落地 / 睡醒 / 被吓一跳 / 无聊 都会说话
+- 连点生气：`MULTI_CLICK_WINDOW` 内点到 **随机** `MULTI_CLICK_MIN`~`MULTI_CLICK_MAX` 下 → 生气并保持 `ANGRY_HOLD_MS`
 - 分区反应：**12 个分区**，各有自己的表情和台词（见下表）
+- 台词池：**22 个池子 / 168 句**，每个池子 6~17 句 —— `CLICK_LINES`、`BORED_LINES`、
+  `WAKE_LINES`、`FLY_LINES`、`LAND_LINES`、`NEAR_LINES`、`AWAY_LINES`、`STARTLE_LINES`、
+  `ANGRY_LINES`、12 个分区各自的 `lines`、兜底 `ZONE_FALLBACK.lines`
+
+**两句台词被测试锁死，加词只能往后加、别动第 0 个。** `STARTLE_LINES[0]` 必须是「！」
+（测试 6.8 认它），`ANGRY_LINES[0]` 必须是「别戳了！」（测试 6.11 / 6.31 认它）。
+这两句各自配一个计数器取下标，**第一次必然是第 0 句**，所以第一句永远不变，
+换花样发生在"被吓第二回、戳生气第二轮"之后 —— 实测生气是
+「别戳了！ → 说了别戳！ → 再戳就生气了」，吓一跳是「！ → 哇！」。
+台词都走 `pick(list, seed)` 取模选词，所以**池子越长越不容易连着撞同一句**；
+测试 6.46 会静态扫源码给池子做体检（池内不许重复、不许空句、每句 ≤14 字、
+池子不少于 6 句），6.44 / 6.45 分别驱动第二轮生气和第二次被吓，确认真的换句了。
 
 **分手气门槛是随机的，不是写死三次。** 写死 3 的下场是：用户戳两下就知道"第三下必炸"，
 于是第三下不再是"她生气了"，而是"我触发了那个开关"。窗口每次重置都重新掷一次，
@@ -274,8 +286,8 @@ python tools/make_sheet.py    # 重新生成上面那张表情总览图（需要
 测试台与工具都在本仓库的 `tools/` 里，**默认对着本仓库这份代码**跑（想改测"正在运行的那份插件"，
 用下面的环境变量指过去即可）：
 
-- **测试** —— `test_client.js`（138 项断言）、`test_host.mjs`（宿主 `sessionDigest` 49 项断言，
-  **不重启 DSH 也能验证 ⑧ 的三项**）、`mutation_check.js`（**变异测试**：把 26 处关键修复
+- **测试** —— `test_client.js`（141 项断言）、`test_host.mjs`（宿主 `sessionDigest` 49 项断言，
+  **不重启 DSH 也能验证 ⑧ 的三项**）、`mutation_check.js`（**变异测试**：把 29 处关键修复
   逐个还原，确认对应测试真的会红）、`scan_undefined.js`（未定义引用静态扫描）、
   `check_eol.py`（全仓行尾必须是纯 LF）
 - **实盘** —— `verify_live.js`（**实盘验收**：素材逐张取、`__mind` 字段判据、`__events`、`__diag`；
@@ -289,9 +301,9 @@ python tools/make_sheet.py    # 重新生成上面那张表情总览图（需要
 
 
 ```bash
-node tools/test_client.js     # 138 项；末尾会打印 hook 槽位数，必须是 58
+node tools/test_client.js     # 141 项；末尾会打印 hook 槽位数，必须是 58
 node tools/test_host.mjs      # 49 项；fake 一个 ctx 直接调路由，不需要重启
-node tools/mutation_check.js  # 26 个变异必须全部"会红"
+node tools/mutation_check.js  # 29 个变异必须全部"会红"
 node tools/verify_live.js     # 对着已经跑起来的 DSH 做端到端验收
 node tools/preview_bubbles.js # 生成 bubble-preview.html，双击看气泡长相
 node tools/zone_map.js        # 生成 zone-map.png，看点击分区落在哪儿
@@ -775,7 +787,7 @@ M23（动画收尾写死角度）→ 6.30 红。
 5. **复刻出来的预览页会骗人。** 预览页的代码要**从源文件现抠**（按注释边界切块），
    照抄一份会随时间偏离真身，那种预览比没有预览更坏。
 6. **回滚也要当成一次改动来做**：先备份、按行号整段删、删完拿残留标识符列表扫一遍，
-   最后用"数字必须回到从前"（断言 138 / 宿主 49 / 变异 26 / hook 槽位 58）确认没有半拉子。
+   最后用"数字必须回到从前"（断言 141 / 宿主 49 / 变异 29 / hook 槽位 58）确认没有半拉子。
 ## 怎么在没有重启的情况下验证宿主改动
 
 ⑧ 的三项（上下文压力 / todo 进度 / 长任务计时）都在宿主里，**必须重启 DSH 才生效**。
@@ -821,7 +833,7 @@ M23（动画收尾写死角度）→ 6.30 红。
 | 宠物气泡 | `BUBBLE_MS` `NOTE_QUIET_MS`（刚提示过就让位） |
 | 气泡长相 | `CSS_TEXT` 里的 `.dshPetBubble` 那一段：`--dshPetPaper` `--dshPetInk` `--dshPetTilt`；三套配色见 `.dshPetBubble` / `Shout` / `Soft`，换哪句说什么情绪看 `bubbleKind` |
 | 气泡尾巴位置 | `.dshPetBubble::after` 的 `left`（默认 24px，Shout 17px） |
-| 宠物台词文案 | `CLICK_LINES` `ZONES[].lines` `ZONE_FALLBACK.lines` `BORED_LINES` `WAKE_LINES` `FLY_LINES` `LAND_LINES` `NEAR_LINES` `AWAY_LINES` |
+| 宠物台词文案 | `CLICK_LINES` `ZONES[].lines` `ZONE_FALLBACK.lines` `BORED_LINES` `WAKE_LINES` `FLY_LINES` `LAND_LINES` `NEAR_LINES` `AWAY_LINES` `STARTLE_LINES` `ANGRY_LINES`（后两个的第 0 句被 6.8 / 6.11 / 6.31 认死，加词只能往后加） |
 | 仪表文案 | `TOOL_LINES` `INTENT_LABEL` |
 | 仪表配色 / 呼吸 | `AI_STATE_COLOR` `AI_STATE_PULSE`（只有"正在动"的状态才呼吸） |
 | 仪表提示节奏 | `NOTE_MS`(2600) `ERROR_NOTE_GAP_MS` `SPACE_NOTE_GAP_MS` `BUSY_NOTE_GAP_SEC` `BUSY_NOTE_FIRST_SEC` |

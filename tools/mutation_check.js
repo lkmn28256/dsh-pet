@@ -240,6 +240,27 @@ const MUTATIONS = [
     to: '\t\t\treturn y < 0.44 ? ZONES[1] : (y >= 0.80 ? ZONES[11] : ZONE_FALLBACK);',
     expect: /FAIL\s+6\.33/
   },
+  {
+    name: 'M27 生气永远同一句（还原写死的"别戳了！"）',
+    src: SRC,
+    from: 'say(ANGRY_LINES[shoutIdx % ANGRY_LINES.length], 2200);',
+    to: 'say("别戳了！", 2200);',
+    expect: /FAIL\s+6\.44/
+  },
+  {
+    name: 'M28 吓一跳永远同一句（还原写死的"！"）',
+    src: SRC,
+    from: 'say(STARTLE_LINES[nSt % STARTLE_LINES.length], 900);',
+    to: 'say("！", 900);',
+    expect: /FAIL\s+6\.45/
+  },
+  {
+    name: 'M29 台词池里塞一句重复的（白占一个坑）',
+    src: SRC,
+    from: 'lines: ["干嘛呀", "痒…", "嘿嘿", "别戳啦",',
+    to: 'lines: ["干嘛呀", "干嘛呀", "嘿嘿", "别戳啦",',
+    expect: /FAIL\s+6\.46/
+  },
 ]
 
 /* 统一成 LF 再比对。

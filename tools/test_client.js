@@ -1687,6 +1687,103 @@ const ACTION_LABELS = /歪头|抖一下|跳一下|伸懒腰|看向别处|打哈�
     else ok('6.31 犯困/害羞换成软气泡（台词 = ' + seen + '）')
   }
 
+  /* ---- 6.44 生气会换台词：第一句锁死「别戳了！」，之后每生气一次换一句 ----
+     台词池用计数器取下标（第一次必然是 0），所以 6.11 / 6.31 认的那句永远不变，
+     换花样只发生在第二轮之后。旧写法是写死 say("别戳了！")，戳多少轮都同一句。 */
+  {
+    const s = session()
+    const shouts = []
+    withRandom(0, () => {
+      for (let round = 0; round < 3; round += 1) {
+        advance(2200, 400)              // 先等上一轮气泡过期，免得读到旧的那句
+        clickAt(s, 104, 138)
+        advance(300, 50)
+        clickAt(s, 104, 138)
+        advance(300, 50)
+        clickAt(s, 104, 138)
+        s.render()
+        shouts.push(String(bubbleText(s)))
+      }
+    })
+    if (shouts[0] !== '别戳了！') bad('6.44 第一轮生气应是「别戳了！」，实际 = ' + shouts[0])
+    else if (shouts[1] === shouts[0]) bad('6.44 第二轮生气还是同一句「' + shouts[1] + '」，ANGRY_LINES 没接上')
+    else if (shouts[2] === shouts[1]) bad('6.44 第三轮又撞回上一句「' + shouts[2] + '」')
+    else ok('6.44 生气每轮换一句：' + shouts.join(' → '))
+  }
+
+  /* ---- 6.45 被吓第二次要换句（第一次永远是「！」，6.8 认那句）---- */
+  {
+    const s = session()
+    const g = geomOf(s)
+    const cx = g.x + g.w * 0.5
+    const cy = g.y + g.h * 0.5
+    const seen = []
+    for (let i = 0; i < 2; i += 1) {
+      dispatch('pointermove', { clientX: cx + 500, clientY: cy })   // 先退到远处
+      advance(60, 20)
+      dispatch('pointermove', { clientX: cx, clientY: cy })         // 再快速掠过
+      s.render()
+      seen.push(String(bubbleText(s)))
+      if (i === 0) advance(5000, 100)     // 等过 STARTLE_COOLDOWN_MS(4500)
+    }
+    if (seen[0] !== '！') bad('6.45 第一次吓一跳应冒「！」，实际 = ' + seen[0])
+    else if (seen[1] === 'null') bad('6.45 第二次没被吓到（冷却没到或速度不够）')
+    else if (seen[1] === '！') bad('6.45 第二次吓一跳还是「！」，STARTLE_LINES 没接上')
+    else ok('6.45 吓一跳换句：' + seen[0] + ' → ' + seen[1])
+  }
+
+  /* ---- 6.46 台词池体检：池内不重复、不空、不超长、池子不能太短 ----
+     台词是 pick() 取模选词：池里有重复项等于白占一个坑，用户会连着看到同一句；
+     池子太短，相邻两次点必然撞同一句；太长的一句会把单行气泡撑成两行。
+     这些池子是模块内部常量，行为测试够不到，所以直接扫源码（SOURCE）。
+     注意只查**池内**重复：左右蝴蝶结、左右手故意共用一套词，跨池重复是设计。 */
+  {
+    const span = (text, at) => {
+      const start = text.slice(at).search(/[[{]/)
+      if (start < 0) return ''
+      let d = 0
+      for (let i = at + start; i < text.length; i += 1) {
+        const ch = text[i]
+        if (ch === '[' || ch === '{') d += 1
+        else if (ch === ']' || ch === '}') { d -= 1; if (d === 0) return text.slice(at + start, i + 1) }
+      }
+      return ''
+    }
+    const stringsOf = (t) => (t.match(/"[^"]*"/g) || []).map((x) => x.slice(1, -1))
+    const problems = []
+    const check = (name, arr) => {
+      const dup = arr.filter((x, i) => arr.indexOf(x) !== i)
+      if (dup.length) problems.push(name + ' 里有重复台词：' + dup.join(' / '))
+      if (arr.length < 6) problems.push(name + ' 只有 ' + arr.length + ' 句，连点必然撞同一句')
+      arr.forEach((x) => {
+        if (!x.trim()) problems.push(name + ' 里有空台词')
+        else if (x.length > 14) problems.push(name + ' 的「' + x + '」有 ' + x.length + ' 字，单行气泡会被撑成两行')
+      })
+      return arr.length
+    }
+    const POOLS = ['CLICK_LINES', 'BORED_LINES', 'WAKE_LINES', 'FLY_LINES',
+      'LAND_LINES', 'NEAR_LINES', 'AWAY_LINES', 'STARTLE_LINES', 'ANGRY_LINES']
+    let total = 0
+    POOLS.forEach((n) => {
+      const at = SOURCE.indexOf('const ' + n + ' =')
+      if (at < 0) { problems.push('源码里找不到 ' + n); return }
+      total += check(n, stringsOf(span(SOURCE, at)))
+    })
+    const zoneBlock = span(SOURCE, SOURCE.indexOf('const ZONES ='))
+    const zones = zoneBlock.split('{ id: "').slice(1)
+    if (zones.length < 10) problems.push('只解析出 ' + zones.length + ' 个分区，源码结构变了')
+    zones.forEach((chunk) => {
+      const id = chunk.slice(0, chunk.indexOf('"'))
+      const ls = chunk.indexOf('lines:')
+      if (ls < 0) { problems.push('分区 ' + id + ' 没有 lines'); return }
+      total += check('ZONES.' + id, stringsOf(span(chunk, ls)))
+    })
+    const fbAt = SOURCE.indexOf('const ZONE_FALLBACK =')
+    total += check('ZONE_FALLBACK', stringsOf(span(SOURCE, SOURCE.indexOf('lines:', fbAt))))
+    if (problems.length) bad('6.46 台词池有问题：\n    - ' + problems.join('\n    - '))
+    else ok('6.46 台词池体检通过：' + (POOLS.length + zones.length + 1) + ' 个池子 / ' + total + ' 句，无重复、无空句、每句 ≤14 字')
+  }
+
   console.log('')
   /* hook 槽位数必须恒定，否则 React #311（条目会被永久退位，界面直接空白） */
   console.log('  Pet 组件的 hook 槽位数 = ' + petLoaded.react.__hooks.cursor + '（现在是 58）')
