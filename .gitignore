@@ -4,6 +4,10 @@ tools/bubble-preview-calm.png
 tools/zone-map.png
 tools/*.log
 
+# 桌面启动器用的图标：只跟本机桌面有关，跟插件本身无关，不入库
+# （要发布就说一声，把这行删掉即可）
+docs/app-icon.ico
+
 # 备份与临时文件
 *.bak
 *.bak-*
