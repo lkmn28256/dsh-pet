@@ -16,6 +16,11 @@ window.__ModuleLoader__.load({
 		const SHIFT_RIGHT = 26;           // 默认位置：距右边缘
 		const SHIFT_TOP = 9;              // 默认位置：距顶部（vh）
 		const POS_KEY = "dsh-pet:pos";    // 位置持久化 key
+		/* 立绘/拖拽差分有没有就绪 —— 同时写进 data-* 属性，供几何自检现读
+		   （只放在 React state 里的话，自检读到的是挂载时的闭包值，
+		   这次"桌宠不见了"就是被那个值带偏的。@see docs/pitfalls.md#p26） */
+		const DATA_LOADED = "data-dsh-pet-loaded";
+		const DATA_DRAG = "data-dsh-pet-drag";
 		const DRAG_THRESHOLD = 4;         // 位移超过这么多像素才算拖拽
 		const MARGIN_KEEP = 60;           // 至少留这么多像素在视口内
 		const FADE_MS = 220;              // 表情切换淡入时长
@@ -1416,7 +1421,12 @@ window.__ModuleLoader__.load({
 							imgComplete: im ? !!im.complete : null,
 							imgNatural: im ? [im.naturalWidth, im.naturalHeight] : null,
 							imgOpacity: (im && im.style) ? im.style.opacity : null,
+							/* loaded/dragReady 这两个是 effect 闭包值（挂载那一刻的），
+							   和 DOM 现况可能不一致 —— 所以真正的判据放在 data-* 属性里现读。
+							   @see docs/pitfalls.md#p26 教训 2 */
 							loaded: loaded, dragReady: dragReady,
+							liveLoaded: el ? el.getAttribute(DATA_LOADED) : null,
+							liveDrag: el ? el.getAttribute(DATA_DRAG) : null,
 							atCenter: at, chain: chain,
 							doc: {
 								sh: document.documentElement.scrollHeight,
@@ -2062,6 +2072,8 @@ window.__ModuleLoader__.load({
 					   做成可读的状态而不是只体现在表情上 —— 不然又是"脸换了意思但没人
 					   告诉你"，那个"安静和坏掉长得一样"的老毛病。 */
 					"data-dsh-pet-face": faceBusy ? "ai" : "pet",
+					[DATA_LOADED]: loaded ? "1" : "0",
+					[DATA_DRAG]: dragReady ? "1" : "0",
 					title: "按住拖动可移动；单击换表情",
 					onPointerDown: onPointerDown,
 					onPointerMove: onPointerMove,
