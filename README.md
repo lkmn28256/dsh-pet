@@ -296,7 +296,9 @@ python tools/make_sheet.py    # 重新生成上面那张表情总览图（需要
   气泡 CSS，生成可以直接双击打开的 `bubble-preview.html`；改完样式重跑一次即可）、
   `zone_map.js`（**分区覆盖图**：从 `client.js` 现抠 `ZONES` 表，把每个分区框画到立绘上存成
   `zone-map.png`；改完分区边界跑一次，别靠脑补坐标）、`make_sheet.py`（README 那张表情总览图）
-- **立绘生产**（绿幕切图那套，**不在本仓库**）：`process_green_grid.py`、`process_drag.py`、
+- **立绘生产**（绿幕切图那套，**不在本仓库**）：`process_green_grid.py`、`process_drag.py`（绿幕源）、
+  `process_drag_fullbody.py`（**米白底源**：背景和角色身上的白围裙/白蕾丝太接近，不能按亮度切，
+  只能从四边洪水填充；角色有闭合描边所以不会漏进身体里）、
   `measure_scale.py`、`fix_ahoge.py`（呆毛内圈去白块，见踩坑 #21）
 
 
@@ -862,10 +864,6 @@ Copy-Item -LiteralPath "$prof\package.json.bak-20261009-230801" -Destination "$p
   宿主没有暴露任何 window/Electron 能力，所以"爬到桌面上"做不到。
 - 哈欠 / 揉眼睛 / 伸懒腰目前是 CSS 拉伸近似，不是真动作帧。
 - 13 张素材共约 4.9MB，首次加载略重（之后有版本号缓存）。
-- **`drag.png` 是拼出来的**：新素材只画到大腿根（没有腿），所以按"脸对齐"缩放后
-  取它的上半身，接在旧 `drag` 的**下半身**上，在裙摆处做 45px 的软过渡
-  （`process_drag_composite.py`）。桌面 190px 真尺寸下分不出接缝，
-  放大 3 倍能看到袖口附近有一点重影。
 - 素材改过三次（两次换 `drag` 差分、一次抠呆毛内圈白块）。要退回旧图：直接覆盖 `assets/`，
   再把 `client.js` 的 `ASSET_VERSION` 加 1（**不加版本号，浏览器不会重新取图**）。
 
