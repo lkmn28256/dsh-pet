@@ -468,22 +468,27 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * 把位置夹到"至少 MARGIN_KEEP 像素留在视口内"，保证桌宠永远点得到。
+		 * 把位置夹到"整只桌宠都在视口内"。
 		 *
 		 * ⚠️ 左边必须用**宠物自身宽度 bw**，绝不能用窗口宽度 w。
 		 * 写成 `x >= -(w - MARGIN_KEEP)` 时，一只 200px 宽的立绘在 1440px 窗口里
 		 * 可以被放到 x = -1380，也就是整只在视口外 —— 松手即消失，
 		 * 而且因为没有任何界面入口，用户再也点不回来。
+		 *
+		 * ⚠️ 竖方向也不能只留 MARGIN_KEEP：一只 296px 高的桌宠停在
+		 * y = h - 60 时只剩头顶一条线，既看不出是桌宠、也很难点到，
+		 * 用户看到的就是"桌宠不见了"。所以上下左右都要求整只可见
+		 * （窗口比桌宠还小时退化成"尽量靠上/靠左"）。
 		 */
 		function clampToView(p, bw, bh) {
 			const w = (typeof window !== "undefined" && window.innerWidth) || 1280;
 			const h = (typeof window !== "undefined" && window.innerHeight) || 900;
-			const mw = Math.min(MARGIN_KEEP, bw);
-			const mh = Math.min(MARGIN_KEEP, bh);
+			const mw = Math.min(bw, Math.max(MARGIN_KEEP, w));
+			const mh = Math.min(bh, Math.max(MARGIN_KEEP, h));
 			const x = Number.isFinite(p && p.x) ? p.x : 0;
 			const y = Number.isFinite(p && p.y) ? p.y : 0;
 			return {
-				x: Math.max(-(bw - mw), Math.min(x, w - mw)),
+				x: Math.max(0, Math.min(x, w - mw)),
 				y: Math.max(0, Math.min(y, h - mh))
 			};
 		}
@@ -683,7 +688,13 @@ window.__ModuleLoader__.load({
 			position: "fixed",
 			pointerEvents: "none",
 			userSelect: "none",
-			zIndex: 40
+			/* ⚠️ 必须高到"任何插件叠层都盖不住"。
+			   原来写 40 —— 只要装了任何一个把自己的整屏层写到 40 以上的插件
+			   （壁纸/玻璃这一类很常见；同目录那个壁纸插件就用到 996/1100/1120），
+			   桌宠就会被**画在别人底下**：看不见，而且指针先被上面那层吃掉，
+			   于是"桌宠没了、也点不动"。桌宠的意义就是浮在最上面，
+			   这里直接给到接近 int32 上限，别再给任何层留空子。 */
+			zIndex: 2147483000
 		};
 
 		const imgStyle = {
@@ -876,6 +887,8 @@ window.__ModuleLoader__.load({
 			const [near, setNear] = react.useState("");
 
 			const imgRef = react.useRef(null);
+			/* 自检用：量几何必须拿到 root 这个真实 DOM 节点 */
+			const rootRef = react.useRef(null);
 			const actRef = react.useRef(null);
 			const firstPopDone = react.useRef(false);
 			const dragRef = react.useRef(null);
@@ -1117,8 +1130,8 @@ window.__ModuleLoader__.load({
 				const g = geomRef.current;
 				const bw = g.w || 200;
 				const bh = g.h || 260;
-				const minX = -(bw - MARGIN_KEEP);
-				const maxX = w - MARGIN_KEEP;
+				const minX = 0;
+				const maxX = Math.max(0, w - bw);
 				const floorY = Math.max(0, h - bh);
 
 				const ph = {
@@ -1274,20 +1287,38 @@ window.__ModuleLoader__.load({
 				}
 			}
 
-			/* 预加载全部素材 */
+			/* 预加载全部素材。
+			   ⚠️ 只靠 onload 是不够的：命中缓存、或自定义协议对已解码的
+			   URL 直接同步给结果时，load 事件可能根本不派发，
+			   loaded 就会永远停在 false —— 主立绘 opacity 恒为 0，
+			   桌宠"消失"，而且没有任何别的界面入口能把它叫回来。
+			   所以这里三道保险：
+			     ① onload / onerror 任一落定就放行；
+			     ② 赋值后立刻查 complete（缓存命中时事件已经错过）；
+			     ③ 4 秒兜底：无论加载发生什么，都得让桌宠露面。 */
 			react.useEffect(() => {
 				let alive = true;
-				let pending = EXPRESSIONS.length;
-				if (pending === 0) return undefined;
-				EXPRESSIONS.forEach((e) => {
+				const imgs = EXPRESSIONS.map((e) => {
 					const im = new Image();
-					im.onload = im.onerror = () => {
-						pending -= 1;
-						if (alive && pending === 0) setLoaded(true);
+					im.onload = () => { if (alive) setLoaded(true); };
+					im.onerror = () => {
+						if (alive) setLoaded(true);
+						reportInfo("sprite-miss", { id: e.id, url: spriteUrl(e.id) });
 					};
 					im.src = spriteUrl(e.id);
+					return im;
 				});
-				return () => { alive = false; };
+				const ready = () => imgs.some((im) => im.complete && im.naturalWidth > 0);
+				if (ready()) setLoaded(true);
+				const iv = setInterval(() => {
+					if (!alive) { clearInterval(iv); return; }
+					if (ready()) { setLoaded(true); clearInterval(iv); }
+				}, 300);
+				const to = setTimeout(() => {
+					if (alive) setLoaded(true);
+					clearInterval(iv);
+				}, 4000);
+				return () => { alive = false; clearInterval(iv); clearTimeout(to); };
 			}, []);
 
 			/* 预加载拖拽差分 */
@@ -1296,6 +1327,109 @@ window.__ModuleLoader__.load({
 				im.onload = () => setDragReady(true);
 				im.src = spriteUrl(DRAG_SPRITE);
 				return () => { im.onload = null; };
+			}, []);
+
+			/* 一次性几何自检。
+			   "桌宠看不见 / 点不动" 这类问题查不出来是有原因的：代码没抛错、
+			   轮询照跑、宿主日志干干净净 —— 病全在浏览器那侧的布局上。
+			   所以直接把 root 的真实几何、祖先链上的 display/visibility/transform/
+			   backdrop-filter/overflow/zIndex，以及"宠物正中心那一摞元素是谁"
+			   一次性问清楚，走 __diag 回来。 */
+			react.useEffect(() => {
+				let alive = true;
+				const fire = (why) => {
+					if (!alive) return;
+					try {
+						const el = rootRef.current;
+						const im = imgRef.current;
+						const rect = (n) => {
+							if (!n || typeof n.getBoundingClientRect !== "function") return null;
+							const r = n.getBoundingClientRect();
+							return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)];
+						};
+						const chain = [];
+						let n = el && el.parentElement;
+						let guard = 0;
+						while (n && guard < 10) {
+							const cs = (typeof getComputedStyle === "function") ? getComputedStyle(n) : null;
+							chain.push({
+								tag: n.tagName,
+								cls: String(n.className || "").slice(0, 48),
+								pos: cs ? cs.position : "",
+								disp: cs ? cs.display : "",
+								vis: cs ? cs.visibility : "",
+								op: cs ? cs.opacity : "",
+								tf: cs ? String(cs.transform || "").slice(0, 32) : "",
+								fil: cs ? String(cs.filter || "").slice(0, 32) : "",
+								bdf: cs ? String(cs.backdropFilter || "").slice(0, 32) : "",
+								wc: cs ? String(cs.willChange || "") : "",
+								ov: cs ? String(cs.overflow || "") : "",
+								z: cs ? String(cs.zIndex || "") : "",
+								cv: cs ? String(cs.contentVisibility || "") : "",
+								ct: cs ? String(cs.contain || "") : "",
+								iso: cs ? String(cs.isolation || "") : "",
+								mb: cs ? String(cs.mixBlendMode || "") : "",
+								vis2: (typeof n.checkVisibility === "function")
+									? n.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })
+									: null,
+								rect: rect(n)
+							});
+							n = n.parentElement;
+							guard += 1;
+						}
+						const bh = vhToPx(HEIGHT_VH);
+						const bw = Math.round(bh * (SPRITE_W / SPRITE_H));
+						const cx = pos.x + bw / 2;
+						const cy = pos.y + bh / 2;
+						const q = (sel) => { try { return el ? el.querySelector(sel) : null; } catch (e5) { return null; } };
+						const csOf = (x) => { try { return (x && typeof getComputedStyle === "function") ? getComputedStyle(x) : null; } catch (e6) { return null; } };
+						const tfOf = (x) => {
+							const cs = csOf(x);
+							if (!cs) return null;
+							return {
+								tf: String(cs.transform || "").slice(0, 48),
+								wc: String(cs.willChange || ""),
+								an: String(cs.animationName || ""),
+								tr: String(cs.transition || "").slice(0, 40)
+							};
+						};
+						let at = null;
+						try {
+							at = (typeof document.elementsFromPoint === "function")
+								? document.elementsFromPoint(cx, cy).slice(0, 6).map((e) => e.tagName + "." + String(e.className || "").slice(0, 32))
+								: null;
+						} catch (e2) { at = null; }
+						reportInfo("geom-" + why, {
+							vw: window.innerWidth, vh: window.innerHeight, dpr: window.devicePixelRatio,
+							pos: { x: pos.x, y: pos.y }, box: { w: bw, h: bh },
+							center: [Math.round(cx), Math.round(cy)],
+							rootRect: rect(el), imgRect: rect(im),
+							actRect: rect(q(".dshPetAct")), stageRect: rect(q(".dshPetStage")),
+							actTf: tfOf(q(".dshPetAct")), stageTf: tfOf(q(".dshPetStage")), imgTf: tfOf(im),
+							rootTf: tfOf(el),
+							selfVis: {
+								root: (el && typeof el.checkVisibility === "function") ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true }) : null,
+								img: (im && typeof im.checkVisibility === "function") ? im.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true }) : null,
+								act: (function () { const a = q(".dshPetAct"); return (a && typeof a.checkVisibility === "function") ? a.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true }) : null; })(),
+								stage: (function () { const a = q(".dshPetStage"); return (a && typeof a.checkVisibility === "function") ? a.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true }) : null; })()
+							},
+							imgComplete: im ? !!im.complete : null,
+							imgNatural: im ? [im.naturalWidth, im.naturalHeight] : null,
+							imgOpacity: (im && im.style) ? im.style.opacity : null,
+							loaded: loaded, dragReady: dragReady,
+							atCenter: at, chain: chain,
+							doc: {
+								sh: document.documentElement.scrollHeight,
+								ch: document.documentElement.clientHeight,
+								bodyH: Math.round(document.body.getBoundingClientRect().height)
+							},
+							stored: (function () { try { return localStorage.getItem(POS_KEY); } catch (e3) { return "err"; } })()
+						});
+					} catch (err) { reportError("geom", err); }
+				};
+				const t1 = setTimeout(() => fire("1.5s"), 1500);
+				const t2 = setTimeout(() => fire("6s"), 6000);
+				return () => { alive = false; clearTimeout(t1); clearTimeout(t2); };
 			}, []);
 
 			/* 定时驱动重渲染（让"已经跑了 N 秒"这类文字动起来） */
@@ -1922,6 +2056,7 @@ window.__ModuleLoader__.load({
 				{
 					className: "dshPetRoot",
 					style: root,
+					ref: rootRef,
 					"data-dsh-pet": dragging ? DRAG_SPRITE : expr.id,
 					/* 现在这张脸归谁："ai" = 她正在替 AI 露面，"pet" = 她只是她自己。
 					   做成可读的状态而不是只体现在表情上 —— 不然又是"脸换了意思但没人
@@ -1963,6 +2098,18 @@ window.__ModuleLoader__.load({
 						cache: "no-store"
 					}).catch(function () { /* 上报失败就算了 */ });
 				}
+			} catch (e) { /* 同上 */ }
+		}
+
+		/* 和 reportError 同一个上报通道，但用来送**事实**而不是异常。
+		   桌宠"看不见/点不动"时没有任何异常可报，只能靠自检把现场送回来。 */
+		function reportInfo(where, info) {
+			try {
+				if (typeof fetch !== "function") return;
+				fetch("/dsh-pet/__diag?data=" + encodeURIComponent(JSON.stringify({
+					where: where,
+					info: info
+				})), { cache: "no-store" }).catch(function () { /* 上报失败就算了 */ });
 			} catch (e) { /* 同上 */ }
 		}
 

@@ -1786,7 +1786,7 @@ const ACTION_LABELS = /歪头|抖一下|跳一下|伸懒腰|看向别处|打哈�
 
   console.log('')
   /* hook 槽位数必须恒定，否则 React #311（条目会被永久退位，界面直接空白） */
-  console.log('  Pet 组件的 hook 槽位数 = ' + petLoaded.react.__hooks.cursor + '（现在是 58）')
+  console.log('  Pet 组件的 hook 槽位数 = ' + petLoaded.react.__hooks.cursor + '（现在是 60）')
   console.log(failures === 0 ? '全部通过' : failures + ' 项失败')
   process.exit(failures === 0 ? 0 : 1)
 })().catch((err) => {

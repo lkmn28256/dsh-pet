@@ -358,6 +358,7 @@ python tools/check_eol.py     # 全仓必须纯 LF（CRLF 会让变异锚点静�
 | [23](docs/pitfalls.md#p23) | 气泡原来是"一块圆角半透明板子"，而且一加类测试就查不到 |
 | [24](docs/pitfalls.md#p24) | "生气次数总是固定在三次" + "只有三个分区有点少" |
 | [25](docs/pitfalls.md#p25) | 音效做了两版都被否：合成音"太机械"，真人录音"太难听" |
+| [26](docs/pitfalls.md#p26) | "桌宠不见了、也点不动"：`loaded` 永远为假 + 允许只露 60px |
 
 ## 怎么在没有重启的情况下验证宿主改动
 
@@ -390,7 +391,7 @@ python tools/check_eol.py     # 全仓必须纯 LF（CRLF 会让变异锚点静�
 | 想改 | 改哪 |
 |---|---|
 | 位置 / 大小 | `SHIFT_RIGHT` `SHIFT_TOP` `HEIGHT_VH` `MARGIN_KEEP` |
-| 允许被推到屏幕外多少 | `MARGIN_KEEP`（`clampToView()` 与 `startPhysics()` 的 `minX/maxX` 同一口径，改动要同步） |
+| 能被推到屏幕外多少 | **默认一点都不能**：`clampToView()` 与 `startPhysics()` 的 `minX/maxX` 都要求整只留在视口内（`MARGIN_KEEP` 只在"窗口比桌宠还小"时当兜底）。改这两处必须同步，只改一处就会出现"推出去回不来" |
 | 呼吸幅度/速度 | `BREATH_PX` `BREATH_SEC` |
 | 小动作频率 | `IDLE_FIRST_MS` `IDLE_GAP_MIN/MAX` |
 | 多久开始游走 | `WANDER_AFTER_MS` `WANDER_STEP_MS` `WANDER_GAP_MS` `WANDER_X/Y` |

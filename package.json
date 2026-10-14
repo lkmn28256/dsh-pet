@@ -1,6 +1,6 @@
 {
   "name": "dsh-pet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "DSH desktop pet: expression sprites driven by session status and local interaction",
   "type": "module",
