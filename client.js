@@ -31,7 +31,7 @@ window.__ModuleLoader__.load({
 
 		const BASE = "/dsh-pet/sprite/";
 		/* ⚠️ 换了素材必须 +1，否则浏览器会拿缓存里的旧图 */
-		const ASSET_VERSION = 8;
+		const ASSET_VERSION = 9;
 		const spriteUrl = (id) => BASE + id + ".png?v=" + ASSET_VERSION;
 		const MIND_URL = "/dsh-pet/__mind";
 		const MIND_POLL_MS = 1000;
